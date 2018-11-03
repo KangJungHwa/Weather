@@ -1,0 +1,37 @@
+import --connect jdbc:postgresql://manage.hdp.exem:5432/flamingo --table fl_fs_audit --username flamingo --password flamingo --fields-terminated-by , --target-dir hdfs://Exem-HA/usr/hdp/2.6.4.0-91/oozie/doc/examples/fl_fs_audit -m 1
+
+
+/usr/hdp/2.6.4.0-91/oozie/doc/examples/fl_fs_audit =>타켓디렉토리가 이미 존재하면 않됨
+
+/usr/hdp/2.6.4.0-91/oozie/doc/examples/apps/sqoop/postgresql-9.0-801.jdbc4.jar
+
+vi /tmp/fl_fs_audit.hql  => hdfs에 파일이 존재해야함.
+
+
+
+sqoop으로 파일을 내릴때 text포멧으로 내리고
+테이블 create를 할때 orc 포멧으로 하니까 에러가 난다.
+
+use default;
+CREATE TABLE fl_fs_audit
+(
+  seq bigint ,
+  from_path string, 
+  to_path string, 
+  file_length bigint, 
+  audit_type string, 
+  file_type string, 
+  work_date bigint, 
+  user_id string
+)
+ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY ','
+LOCATION
+  '/usr/hdp/2.6.4.0-91/oozie/doc/examples/fl_fs_audit';
+  
+load data inpath '/usr/hdp/2.6.4.0-91/oozie/doc/examples/fl_fs_audit/part-m-00000' into table default.fl_fs_audit  
+
+WITH T(
+SELECT USER_ID, ROW_NUMBER() OVER(PARTITION BY USER_ID) RN, COUNT(1) OVER(PARTITION BY USER_ID) CNT FROM  fl_fs_audit
+)
+SELECT * FROM T WHERE T.RN =1
