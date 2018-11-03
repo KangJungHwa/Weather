@@ -1,0 +1,41 @@
+
+pg_stat_statements 사용하기 위한 절차
+
+#postgresql.conf 파일 수정
+shared_preload_libraries = 'pg_stat_statements'	# (change requires restart)
+pg_stat_statements.max = 10000
+pg_stat_statements.track = all
+
+#위의 파일 수정후 postgresql 재시작
+
+#재시작 후 적용이 되었는지 확인 pending_restart가 false로 나와야 한다.
+select name,pending_restart 
+  from pg_settings 
+ where name in ('shared_preload_libraries');
+
+#conf 파일에 설정된 값이 나오는지 확인
+show pg_stat_statements.max; 
+show pg_stat_statements.track;
+
+#아래항목은 on으로 표시되야 한다.
+show pg_stat_statements.track_utility;
+show pg_stat_statements.save;
+ 
+#preload libraries 확인
+  show shared_preload_libraries;
+
+#확장이 가능한 모듈 확인하기
+ select * from pg_available_extensions order by name;
+
+#extension 설치
+  alter system set logging_collector=on;
+  create extension pg_stat_statements;
+  alter system set shared_preload_libraries='pg_stat_statements';
+  
+#  pg_stat_statements가 뷰로 생성되고 테이블 컬럼은 아래 쿼리로 확인가능
+select * from information_schema.columns
+where table_name = 'pg_stat_statements' order by column_name
+
+# 쿼리 히스토리에 대한 조회는 아래와 같다.
+select * from pg_stat_statements(true);
+select * from pg_stat_statements;
