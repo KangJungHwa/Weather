@@ -1,0 +1,76 @@
+1. 저장소 설치
+rpm -Uvh  https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-redhat11-11-2.noarch.rpm
+
+2. 패키지 검색 
+yum list postgresql11
+
+3. 설치 
+yum install postgresql11-server.x86_64 postgresql11-contrib.x86_64 postgresql11-devel.x86_64
+
+4. postgres 컴파일 환경을 출력하는 pg_config 유틸을 패스에 추가
+ln -s /usr/pgsql-9.5/bin/pg_config /usr/bin/pg_config
+
+5. 초기 db 생성
+/usr/pgsql-11/bin/postgresql11-setup initdb
+
+6. 서비스 재시작
+service postgresql-11 restart
+
+7. 서비스 등록
+chkconfig postgresql-11 on 
+
+8. 사용자 동록(리눅스)
+adduser sentry
+
+9. psql 프로프트 수행 
+postgres psql postgres
+
+10. psql 프롬프트에서 db 생성 및 권한 부여
+create user sentry;
+create database sentrydb ENCODING 'UTF-8' ;
+GRANT ALL PRIVILEGES ON DATABASE sentrydb TO sentry;
+   데이터베이스 생성시에 기본적으로 템플릿을 지정하지 않으면 template1을 사용한다.
+   사용자가 추가하고 싶은 객체를 template1에 추가하면 다음 생성 시 해당객체를 포함하여 생성할 수 있다. 
+   10-1 template0를 사용하면 encoding 등을 지정할 수 있다.
+   CREATE DATABASE dbname TEMPLATE template0;
+
+11. 디폴트 데이터 디렉토리 
+    /var/lib/pgsql/11/data
+
+12 data 디렉토리 변경(변경을 할것인지 Tablespace만 다른디스크를 사용할 지 결정할것)
+   12-1 psql에서 현재 데이터 디렉토리 확인
+	show data_directory;
+	-------------------------
+	/var/lib/pgsql/11/data
+   12-2 서비스를 중단 한다.
+	service postgresql-11 stop
+
+13 환경설정 변경
+    아래의 2개의 파일을 수정한다.
+	수정파일 : /var/lib/pgsql/9.3/data/postmaster.opts
+	수정할곳 : /usr/pgsql-9.3/bin/postgres "-D" "/data/postgres/data"
+	수정파일 : /usr/lib/systemd/system/postgresql-9.3.service
+	수정할곳 : Environment=PGDATA=/data/postgres/data/
+	
+14. 새로운 Postgres datadir 생성 및 경로 이동
+	mkdir /data/postgres/
+	mv /var/lib/pgsql/9.3/data /data/postgres/
+	
+15. 서비스를 시작 한다.
+	service postgresql-11 start	
+
+16. postgres 접속 하여 datadir 경로가 바뀌었음을 확인 할 수 있다.
+
+	show data_directory;
+	-------------------------
+	/data/postgres/data
+	
+
+17 원격접속을 위한 postgresql 클라이언트 인증설정파일 
+    pg_hba.conf
+	모든 대역에 대하여 접속이 가능하도록 하려면, ADDRESS 부분에 대하여 0.0.0.0/0 으로 설정 해주면 된다.
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
+    # IPv4 local connections:
+    host    all             all             127.0.0.1/32            md5	
+	Pg_hba.conf 파일은 수정 후에 PostgreSQL(DB)에 대하여 reload 명령을 수행해줘야 적용이 된다.
+	명령어 : pg_ctl reload –D $PGDATA
