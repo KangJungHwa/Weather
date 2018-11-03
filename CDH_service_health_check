@@ -1,0 +1,71 @@
+TODAY=`date  +%Y%m%d`
+curl -u admin:Cmpassuat1 -k 'https://localhost:7183/api/v9/clusters/KRBDUAT/services' > /home/gpabdadmin/bin/service_health_$TODAY.json
+
+python /home/gpabdadmin/bin/jsontohtmlconverter.py "/home/gpabdadmin/bin/service_health_$TODAY.json"
+
+echo "This mail is CDH service Helth Check mail" | mailx -a "/home/gpabdadmin/bin/service_health_$TODAY.json.html" -s "This mail is CDH service Helth Check mail" -r noreply@`hostname` dl.cto.kr.big.data.monitoring@imcap.ap.ssmb.com
+rm /home/gpabdadmin/bin/service_health_$TODAY.json*
+
+
+#############################################
+jsontohtmlconverter.py
+#############################################
+
+import json
+import sys
+import datetime
+jsonfile=sys.argv[1]
+print jsonfile
+target = open(jsonfile+".html", 'w')
+today = datetime.datetime.now()
+
+html = """
+            <html>
+            <head>
+            <script type="text/javascript"></script>
+            <style>
+            /* Sortable tables */
+            table.sortable thead {
+            background-color:#aaaaaa;
+            color:#000000;
+            font-weight: italic;
+            cursor: default;
+            }
+            </style>
+            <title> UAT Service Status </title>
+            </head>
+            <body bgcolor=#ffffff>
+        """
+html2=  """
+
+            <table style="width:100%" class="sortable" border=1>
+            <thead>
+            <tr>
+            <th>Service Name </th>
+            <th>Status </th>
+            </tr>
+            </thead>
+            <tbody>
+        """
+target.write(html)
+target.write(str(today))
+target.write(html2)
+
+print jsonfile
+def openJson(jsonfile):
+    print jsonfile
+    with open(jsonfile) as json_data:
+        js=json.load(json_data)
+        print js
+    num=len(js["items"])
+    print num
+    for j in range(0,num):
+        num2=len(js["items"][j]["healthChecks"])
+        for i in range(0,num2):
+            target.write("<thead><tr><th>"+js["items"][j]["healthChecks"][i]["name"]+"</th><th>"+js["items"][j]["healthChecks"][i]["summary"]+"</th></tr></thead>")
+
+
+openJson(jsonfile)
+target.write("</tbody></table></body></html>")
+target.close()
+sys.exit(2)

@@ -1,0 +1,14 @@
+[bash]
+$ hive -e "SELECT count(*) FROM pagecounts;"
+Total MapReduce jobs = 1
+Launching Job 1 out of 1
+…
+OK
+36668549
+Time taken: 25.31 seconds, Fetched: 1 row(s)
+[/bash]
+
+[bash]
+$ zcat * | wc -l
+36668549
+[/bash]
