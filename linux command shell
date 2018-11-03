@@ -1,0 +1,121 @@
+#!/bin/bash
+RUN_TIME=`date +%Y%m%d_%H%M%S`
+HOSTNAME=`hostname`
+MAIL_FROM="noreply@$HOSTNAME"
+MAIL_TO_GOOD="dl.cto.kr.big.data.monitoring@imcap.ap.ssmb.com"
+STR_RESULT=""
+STR_MAIL=""
+IS_MAIL="n"
+
+function fn_send_mail
+{
+   if [ $1 == "fail" ]; then
+      echo -e "$CMD_FLAG $CMD_OPT1 $CMD_OPT2 $CMD_OPT3 $CMD_OPT4 $CMD_OPT5 $CMD_OPT6 command fail! at $RUN_TIME \n\n $STR_RESULT\n" | mailx -s "$HOSTNAME $CMD_FLAG $CMD_OPT1 $CMD_OPT2 $CMD_OPT3 $CMD_OPT4 $CMD_OPT5 $CMD_OPT6 command run fail!" -r $MAIL_FROM $MAIL_TO_GOOD
+   else
+      echo -e "$CMD_FLAG $CMD_OPT1 $CMD_OPT2 $CMD_OPT3 $CMD_OPT4 $CMD_OPT5 $CMD_OPT6 command success! at $RUN_TIME \n\n $STR_RESULT\n" | mailx -s "$HOSTNAME $CMD_FLAG $CMD_OPT1 $CMD_OPT2 $CMD_OPT3 $CMD_OPT4 $CMD_OPT5 $CMD_OPT6 command run SUCCESS!" -r $MAIL_FROM $MAIL_TO_GOOD
+   fi
+}
+
+#---------------------------------
+# parameter setting
+#---------------------------------
+STR_RESULT=""
+STR_MAIL=""
+IS_MAIL="n"
+
+if [ $# -gt 0 ]; then
+    STR_MAIL=`echo $* | sed -e "s/^.*\(....\)/\1/"`
+    if [ $STR_MAIL == "mail" ]; then
+       IS_MAIL="y"
+    fi
+    CMD_FLAG=""
+    CMD_OPT1=""
+    CMD_OPT2=""
+    CMD_OPT3=""
+    CMD_OPT4=""
+ CMD_OPT5=""
+ CMD_OPT6=""
+    CMD_FLAG=$1
+
+    case $# in
+       1) CMD_FLAG=$1
+          ;;
+       2) CMD_FLAG=$1
+          CMD_OPT1=$2
+          ;;
+       3) CMD_FLAG=$1
+          CMD_OPT1=$2
+          if [ $IS_MAIL == "n" ]; then
+                CMD_OPT2=$3
+          fi
+          ;;
+       4) CMD_FLAG=$1
+          CMD_OPT1=$2
+          CMD_OPT2=$3
+          if [ $IS_MAIL == "n" ]; then
+                CMD_OPT3=$4
+          fi
+          ;;
+       5) CMD_FLAG=$1
+          CMD_OPT1=$2
+          CMD_OPT2=$3
+          CMD_OPT3=$4
+          if [ $IS_MAIL == "n" ]; then
+                CMD_OPT4=$5
+          fi
+          ;;
+       6) CMD_FLAG=$1
+          CMD_OPT1=$2
+          CMD_OPT2=$3
+          CMD_OPT3=$4
+    CMD_OPT4=$5
+          if [ $IS_MAIL == "n" ]; then
+                CMD_OPT5=$6
+          fi
+          ;; 
+       7) CMD_FLAG=$1
+          CMD_OPT1=$2
+          CMD_OPT2=$3
+          CMD_OPT3=$4
+    CMD_OPT4=$5
+    CMD_OPT5=$5
+          if [ $IS_MAIL == "n" ]; then
+                CMD_OPT6=$7
+          fi
+          ;;     
+        *) STR_RESULT="Invalid parameter \n "
+           fn_send_mail "fail"
+           exit 1
+          ;;
+      esac
+else
+    STR_RESULT="Invalid parameter \n"
+    fn_send_mail "fail"
+    exit 1
+fi
+
+#---------------------------------
+# Command Excute
+#---------------------------------
+function fn_proc_command
+{
+    STR_RESULT="run command :  $CMD_FLAG $CMD_OPT1 $CMD_OPT2 $CMD_OPT3 $CMD_OPT4 $CMD_OPT5 $CMD_OPT6 \n "
+    #echo "$STR_RESULT"
+
+    STR_RESULT=$STR_RESULT`$CMD_FLAG $CMD_OPT1 $CMD_OPT2 $CMD_OPT3 $CMD_OPT4 $CMD_OPT5 $CMD_OPT6 2>&1`
+    if [ $? -ne 0 ]; then
+            echo "$STR_RESULT"
+        fn_send_mail "fail"
+        exit 0
+    fi;
+
+}
+fn_proc_command
+if [ $IS_MAIL == "y" ]; then
+    echo "$STR_RESULT"
+    fn_send_mail "success"
+else
+    echo "$STR_RESULT"
+fi
+exit 0
+

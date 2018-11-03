@@ -1,0 +1,5 @@
+TODAY=`date  +%Y%m%d`
+curl "http://bdicr101x09h2.apac.nsroot.net:50070/dfshealth.jsp" >> /home/gpabdadmin/bin/hdfs_report_$TODAY.html
+
+echo "This mail is HDFS report mail" | mailx -a "/home/gpabdadmin/bin/hdfs_report_$TODAY.html" -s "This mail is HDFS report mail" -r noreply@`hostname` dl.cto.kr.big.data.monitoring@imcap.ap.ssmb.com
+rm /home/gpabdadmin/bin/hdfs_report_$TODAY.html

@@ -1,0 +1,1439 @@
+- SPARK-REPL(read eval print loop)
+  대화형 스칼라 command line 인터프리터로 spark context가 자동 생성되어 
+ sc를 생성하는 과정이 필요하지 않다.
+
+- RDD의 정의
+   - 분산되어 존재하는 데이터 요소의 모임 스파크는 RDD에 있는 데이터들을 
+     클러스터에 분산저장하여 클러스터 위에서 병렬 처리연산을 한다.
+   - 분산되어 있는 변경이 불가능한 데이터 객체 모음이다. 
+   - RDD가 속한 요소들은 파티션이라고 하는 더 작은 단위로 나눠질 수 있는데
+     이 파티션단위로 나눠졌서 병렬연산을 합니다.
+   - 파티션은 연산과정에서 재구성되거나 네트웍을 통해 다른 서버로 이동하는 셔플링이
+     발생하는데 셔플링은 전체작업 성능에 영향을 주므로 주의해서 다뤄야 합니다.
+     스파크에서는 셔플링이 발생할 수 잇는 주요 연산마다 파티션 갯수를 직접 지정할 수 있는 옵션을 제공합니다.
+   - 스파크는 RDD는 생성과정을 기록해 뒀다가 원래 상태로 다시복원하기 위한 기능을 가지고 있습니다.
+   - 이때 rdd가 변경되는 것이 아니라 새로운 rdd가 생성된다.
+   - 이처럼 rdd는 새로운 rdd가 생성될 수는 있어도 자신은 변경되지 않습니다.
+
+   - resilient라는 단어가 이러한 복구능력을 말합니다.   
+   - 생성된 RDD는 두가지 타입의 연산을 지원한다.
+     - transfomation
+	   - 존재하는 RDD를 기반으로 새로운 RDD를 생성한다.
+	   
+	 - action
+       -RDD를 기초로 하여 연산된 결과값을 돌려준다.
+	   - 리턴타입이 RDD가 아니면 action.
+	   
+
+- RDD의 생성방법 1 - sc.parallelize
+    scala> var rdd=sc.parallelize(List("a","b","c","d"));
+	       rdd: org.apache.spark.rdd.RDD[String] = ParallelCollectionRDD[1] at parallelize at <console>:62
+	scala> val x=sc.parallelize(List("pandas","i like pandas"))
+	       x: org.apache.spark.rdd.RDD[String] = ParallelCollectionRDD[4] at parallelize at <console>:62
+
+	scala> val x=sc.parallelize(1 to 10)
+	       x: org.apache.spark.rdd.RDD[Int] = ParallelCollectionRDD[3] at parallelize at <console>:62
+	scala> val data = Seq(("BMW 1er Model",278),("MINI Cooper Model",248),("bmw 1er Model",278),("mini Cooper Model",248))
+	
+	scala> val dataRDD =sc.parallelize(data);
+           data: Seq[(String, Int)] = List((BMW 1er Model,278), (MINI Cooper Model,248), (bmw 1er Model,278), (mini Cooper Model,248))
+           dataRDD: org.apache.spark.rdd.RDD[(String, Int)] = ParallelCollectionRDD[8] at parallelize at <console>:67
+- RDD의 생성방법 2 - sc.makeRDD
+  val employeeData = List(("Jack",1000.0),("Bob",2000.0),("Carl",7000.0))
+  val employeeRDD = sc.makeRDD(employeeData)
+  
+- RDD의 외부파일로 부터 RDD 생성		
+  val lines=sc.textFile("c:\\dataset\\movies.dat");
+	
+- RDD textFile의 2번째 인자(파티션 갯수)
+   파일에 대한 파티션의 갯수를 제어 하기 위해 두번째 인자를 사용한다.
+  기본적으로 spark는 hdfs 블럭크기(128mb)의 파티션을 만듭니다.
+ hdfs 블럭보다 적은수의 파티션크기를 지정할 수 없습니다.		
+ val lines=sc.textFile("c:\\dataset\\movies.dat",256);	
+
+- 다양한 방식의 RDD 외부파일로 부터의 생성
+  	val lines=sc.textFile("/tmp/");
+	val lines=sc.textFile("/tmp/*.txt");  
+	val lines=sc.textFile("/tmp/*.gz");
+	val lines=sc.textFile("hdfs://koreadev/tmp/movies2/");
+    val lines=sc.wholeTextFiles("c:\\dataset\\nba\\2014\\*");
+	
+- map 
+  - map은 각요소에 적용한 결과값을 배열로  
+  - 숫자 RDD map을 이용 rdd 각요소의 제곱을 구하기
+    val x=sc.parallelize(1 to 10)
+	val y=x.map(x => x*x)   
+	var z=x.map(_ + 1)
+    var v=x.map(_.sum)
+    
+  - 문자 RDD를 map을 이용 변형 
+	var rdd=sc.parallelize(List("a","b","c","d"));	
+    val charUP = words.map(x=>x.toUpperCase)	
+  - 문자 map 다른 방식
+	val charLO = charUP.map(_.toLowerCase())
+	
+	
+- map과 flatMap의 차이
+  map의 결과는 줄을 " " 구분자로 분해한 결과를 array(줄)안의 array(단어)에 담는다.
+  val lines=sc.textFile("c:\\dataset\\apache.dat");
+  val word=lines.map(line => line.split(" "))
+   Array[Array[String]] = 
+   Array(
+         Array(Licensed, to, the, Apache, Software, Foundation, under, one, or, more), 
+         Array(contributor, license, agreements., "", See, the, NOTICE, file, distributed, with), 
+		 Array(this, work, for, additional, information, regarding, copyright, ownership.), 
+		 Array(The, ASF, licenses, this, file, to, You, under, the, Apache, License,, Version, 2.0), 
+		 Array((the, "License");, you, may, not, use, this, file, except, in, compliance, with), 
+		 Array(the, License., "", You, may, obtain, a, copy, of, the, License, at), 
+		 Array(""), Array("", "", "", http://www.apache.org/licenses/LICENSE-2.0), 
+		 Array(""), 
+		 Array(Unless, required, by, applicable, law, or, agreed, to, in, writing,, software)
+		 )
+  
+	val word2=lines.flatMap(line => line.split(" "))
+	flatMap 결과는 각요소를 " " 구분자로 분해한 결과를 하나의 array 담는다.
+	Array[String]
+	Array[String] = Array(Licensed, to, the, Apache, Software, Foundation, under, one, or, more)
+	
+
+- filter 
+  - 문자 필터 
+	val x=sc.parallelize(1 to 10)
+    val y=x.filter(e=>e%2==0)
+	
+  - RDD의 filter 문자열이 포함된 라인만 조회
+    var apache_licence=sc.textFile("c:\\dataset\\apache.txt")
+    var filter=apache_licence.filter(x => x.contains("LICEN"))
+    res25: Array[String] = Array(" *    http://www.apache.org/licenses/LICENSE-2.0")
+		
+- rdd 합치기	
+	val unionRDD = charUP.union(charLO)
+	unionRDD.take(10)
+	
+- RDD의 일부데이터 화면출력 - take(10).foreach(println)
+  take함수는 순서가 보장되지 않는다.
+  foreach(println)을 사용하면 array에 담겨있는 요소만 화면에 출력한다.
+  unionRDD.take(10).foreach(println)	
+	
+- RDD의 전체 데이터 화면에 가져오기
+  unionRDD.collect
+  collect를 사용하기 위해서는 메모리에 올릴 수 있는 정도의 데이터 크기여야 한다.
+  
+- RDD 저장하기
+  unionRDD.saveAsTextFile("/tmp/unionRDD.txt")  
+		
+- 라인의의 길이, 단어의 길이 세기  
+   - 아래는 단순히 길이만 표시한다.
+   val len=lines.map(s => s.length)
+   - 각 라인의 문자를 표시해주고 길이를 표시해준다.
+   val len=lines.map(s => (s,s.length))
+   len.collect
+   res2: Array[Int] = Array(111, 90, 143, 62, 97, 101, 0)	
+	
+- 각 줄에 있는 단어의 갯수 세기
+  아래는 각 줄에있는 단어의 갯수를 반환한다.
+  Array[(Array[String], Int)] 
+  val word=lines.map(line => line.split(" ")).map(s => (s,s.length))
+  		
+- 각 줄에 있는 단어의 갯수 세기
+  flatMap : RDD 각요소에 어떤 함수를 적용한 결과 RDD를 반환한다. 
+  val word=lines.flatMap(line => line.split(" ")).map(s => (s,s.length))
+  
+- 작은 파일을 읽어들이기 위한 wholeTextFiles
+  rdd가 생성되었다고 하더라고 해당디렉토리 파일에 읽기권한 이 없다면 에러가 발생한다.
+   파티션의 갯수는 데이터가 인접한 상황에 따라 생성된다.
+   이를 제어 하기위해서는 2번째 인자를 지정하여 생성할 수 있다.
+  val lines=sc.wholeTextFiles("/tmp/*.dat", 3);
+		
+- RDD를 나중에 재사용하기
+  - 결과를 계속적으로 메모리 또는 디스크에 유지하도록 요청한다.
+    lines.persist()
+	
+- word count 예제	
+
+  
+- foldByKey를 이용한 word count
+  초기값을 전달할때 파티션 단위로 전달하기 때문에 초기값을 0이외에는 쓰지 않는것이 좋다.
+  val rdd1=sc.textFile("c:\\dataset\\apache.txt",5).flatMap(x=>x.split(" ")).map(x=>(x,1))
+  val rdd3=rdd1.foldByKey(1)(_+_).map(x=>x.swap).sortByKey(ascending=false).map(x=>x.swap)
+  rdd3.collect.foreach(println) 
+  
+  
+- reduceByKey를 이용한 word count
+  var rdd= sc.textFile("C:\\dataset\\apache.txt")
+  var rdd1=rdd.flatMap(_.split(" "))
+  var rdd2=word.map(word => (word,1))
+  var result=rdd2.reduceByKey(_+_)
+  result.collect.foreach(println) 
+  
+- 평균 구하기 예제 
+    방법 1 aggregateByKey
+  
+	package Spark.com.spark.self
+	import org.apache.spark.{SparkConf, SparkContext}
+
+	object AggregateByKey {
+	  def main(args : Array[String]){
+		  val gsc=new GetSparkContext
+		  val sc= gsc.getSparkContext()
+		  val score=List(ScoreAvg("math",100),ScoreAvg("math",80),ScoreAvg("eng",100),ScoreAvg("eng",80),ScoreAvg("eng",60))
+		  val scoreWithKey=for(i<-score) yield(i.subject,i)
+		  val rdd1=sc.parallelize(scoreWithKey)
+		  val initval= ((0.0F,0))
+		  val result=rdd1.aggregateByKey(initval)(
+			  (ac: (Float,Int), x: ScoreAvg) => (ac._1 + x.score, ac._2 +1), //ScoreAvg 타입에서 하나의 키에대해 표현 방식을 정의해 준다.
+			  (ac1: (Float,Int),ac2: (Float,Int)) => (ac1._1 +ac2._1, ac1._2 + ac2._2) // 현재row와 이전row의 계산 방식, 관계를 표현함
+			  ).map({
+				case(key,value) => (key, value._1 / value._2)
+			  })
+			result.collect.foreach(println)          
+		  sc.stop
+	   }
+	}
+	
+	 val babyNamesCSV = sc.parallelize(List(("David", 6), ("Abby", 4), ("David", 5), ("Abby", 5)))
+     babyNamesCSV.aggregateByKey((0, 0))(
+        (acc, value) => (acc._1 + value, acc._2 + 1),
+        (acc1, acc2) => (acc1._1 + acc2._1, acc1._2 + acc2._2))
+    .mapValues(sumCount => 1.0 * sumCount._1 / sumCount._2)
+    .collect
+
+  
+    방법 2 combineByKey
+	package Spark.com.spark.self
+	import org.apache.spark.{SparkConf, SparkContext}
+
+	object AvgTest {
+	  def main(args : Array[String]): Unit ={
+		  val gsc=new GetSparkContext
+		  val sc= gsc.getSparkContext()
+		  val scores = List(ScoreAvg("math",100), ScoreAvg("math",50), ScoreAvg("eng",50),ScoreAvg("eng",60), ScoreAvg("eng",90))
+		  val scoresWithKey = for { i <- scores } yield (i.subject, i)
+		  val scoresWithKeyRDD = sc.parallelize(scoresWithKey)
+		  val avgScoreRDD=scoresWithKeyRDD.combineByKey(
+			  (x: ScoreAvg) => (x.score,1) ,//하나의 키에대해 최종적으로 표현하게 될 데이터셋의 모습
+			  (ac: (Float,Int), x: ScoreAvg) => (ac._1 + x.score, ac._2 +1), //ScoreAvg 타입에서 하나의 키에대해 표현 방식을 정의해 준다.
+			  (ac1: (Float,Int),ac2: (Float,Int)) => (ac1._1 +ac2._1, ac1._2 + ac2._2) // 현재row와 이전row의 계산 방식, 관계를 표현함
+			  ).map({
+				case(key, value) => (key, value._1 / value._2)
+			  })
+			  avgScoreRDD.collect.foreach(println)
+			  
+		  sc.stop
+	   }
+	}
+
+  
+  
+  - 라인의의 길이 세기  
+  scala> val len=lines.map(s => s.length)
+         len.collect
+	     res2: Array[Int] = Array(111, 90, 143, 62, 97, 101, 0)
+ 
+- 전체문장의 길이 세기
+  scala> len.count()
+	res3: Long = 7
+
+	scala> val totlen=lines.map(s => s.length).reduce((a,b) => a+b)
+	totlen: Int = 604
+	
+- RDD x.to(5)
+    x RDD에서 리턴되는 인자(숫자) 부터 5까지의 요소를 리턴한다.
+	scala> val x=sc.parallelize(1 to 4)	
+	Array[Int] = Array(1, 2, 3, 4)
+	
+	scala> val y=x.flatMap(x => x.to(5))
+	Array[Int] = Array(1, 2, 3, 4, 5, 2, 3, 4, 5, 3, 4, 5, 4, 5)
+	
+- take (액션) 
+    retrun type : array
+	RDD 데이터의 일부를 배열 가져온다.
+	lines.take(3)
+	아래처럼 처음 조회되는 3줄을 Array에 담아 온다.
+	res4: Array[String] = Array(The first query shows that Curry makes, 
+							on average, more three-pointers than anyone in the history of the NBA., 
+							The second query shows that Joe Hassett had the best three-point shooting season in 1981,, 
+							as compared to the rest of the league, in the history of the NBA. Curry doesnven rank in the top 10. (He barely misses it, coming in at 12th.)
+							)
+   
+- first (액션)
+    retrun type : string
+	데이터의 첫라인을 가져온다.
+	lines.first()
+	res14: String = The first query shows that Curry makes, on average, more three-pointers than anyone in the history of the NBA.   
+   
+- count 파일의 줄 세기(액션)
+    retrun type : Long
+	lines.count()
+	res2: Long = 6   
+
+- collect (액션)
+    retrun type : array
+	RDD의 전체데이터를 가져온다.
+	데이터셋이 너무크면 사용할 수 없다. 메모리에 올릴수 있는 정도여야 한다.
+	이러경우는 hdfs나 아마존 S3와 같은 분산파일 시스템에 쓰는것이 일반적이다.
+	filter를 통해 작은 데이터셋을 만든후 분산이 아닌 로컬에서 
+	데이터를 처리하고 싶을때 사용한다.
+	lines.collect
+
+- filter 예제 (transform)
+  
+  split은 레귤러 익스프레션을 지원한다.
+  //아래는 알파벳이 아닌것을 기준으로 분할한다.
+  val words2 = lines.flatMap(line => line.split("[^a-zA-Z]+")).filter(word => word.nonEmpty)
+  
+  //아래는 알파벳과 숫자가 아닌것을 기준으로 분할한다.
+  val words3 = lines.flatMap(line => line.split("[^a-zA-Z0-9]+")).filter(word => word.nonEmpty)
+  
+  //단어의 길이가 4 이상이 단어만 필터 한다.
+  val words4 = lines.flatMap(line => line.split("[^a-zA-Z0-9]+")).filter(x => x.length >= 4)
+  
+  //단어의 길이가 4가 아닌 단어만 필터 한다.
+  val words4 = lines.flatMap(line => line.split("[^a-zA-Z0-9]+")).filter(x => x.length != 4)
+  
+  //단어의 길이가 4인 단어만 필터 한다.
+  val words4 = lines.flatMap(line => line.split("[^a-zA-Z0-9]+")).filter(x => x.length == 4)
+  
+  //contains를 이용한 필터
+  val inRDD = lines.filter(_.contains("in"))
+  val inRDD2 = lines.filter(line => line.contains("in"))
+	
+- word count 예제
+  val lines=sc.textFile("/tmp/nba.txt");
+  val words = lines.flatMap(line => line.split(" ")).filter(word => word.nonEmpty)
+  val word_list = words.map(x=>x.toLowerCase)
+  val word_one = word_list.map(word => (word, 1))
+  결과: Array[(String, Int)] = Array((The,1), (first,1), (query,1), (shows,1), (that,1), (Curry,1), ...)
+  val word_count=word_one.reduce((x, y) => x + y)
+  결과: Array[(String, Int)] = Array((are,1), (pointers,1), (is,2), (second,1), (shot,1), (taking,1),....)
+
+
+- word count 결과를 빈도수가 많은 순서대로 소팅  
+  단어별로 합산한후 빈도수가 많은 단어부터 조회되게 소팅
+  swap 통해 단어와 빈도수 위치를 바꾸고 sortByKey를 이용해서 sort
+  val word_count2=word_one.reduceByKey(_ + _).map(key_val => key_val.swap).sortByKey(ascending = false)
+  - 다시 단어 빈도수로 원상복구
+  val word_count3=word_count2.map(key_val => key_val.swap)
+  
+  아래는 sortby를 통해 sort하는 예제
+  val word_count4=word_one.reduceByKey(_ + _).sortBy({case(k,v) => v}, ascending = false)
+  
+- word count countByValue 사용 예제
+  
+  	val lines=sc.textFile("/tmp/nba.txt");  
+	val words = lines.flatMap(line => line.split(" ")).filter(word => word.nonEmpty)
+	val word_count= words.countByValue
+    res : scala.collection.Map[String,Long] = Map(people -> 1, Three-pointers -> 1, in -> 8  
+  
+- top n 사용 예제
+   scala> val input1 = sc.parallelize(List(1,2,3,4))
+   input1: org.apache.spark.rdd.RDD[Int] = ParallelCollectionRDD[17] at parallelize at <console>:24
+   scala> input1.top(4)
+   res6: Array[Int] = Array(4, 3, 2, 1)  
+  
+	
+- 지정된 숫자 만큼 배열 가져온다.
+  원하는 데이터를 순서대로 가져오지 않는다.
+  특정 파티션의 데이터만을 가져올 수도 있다.
+  words.take(10)
+
+- foreach
+  rdd 형식은 생략하고 해당 요소만 출력한다.
+  foreach는 괄호 안의 각요소에 적용한다.
+  lines.take(5).foreach(println)
+
+- RDD의 저장방법
+    lines.saveAsTextFile("C:\\hadoop\\spark_notebook\\nba2.txt")
+	lines.saveAsSequenceFile("C:\\hadoop\\spark_notebook\\nba2")
+	
+- 두 가지 RDD에 대한 연산 union, intersaction
+    val input1 = sc.parallelize(List(1,2,3,4))
+	val input2 = sc.parallelize(List(3,4,5,6))
+	
+	- 합집합
+	val unionRDD = input1.union(input2)
+	Array[Int] = Array(1, 2, 3, 4, 3, 4, 5, 6)
+	- 교집합
+	val interRDD = input1.intersection(input2)
+	Array[Int] = Array(4, 3)
+	
+	- 차집합
+	val subRDD = input1.substract(input2)
+	Array[Int] = Array(2, 1)
+	
+	- cartesian(4*4)
+	val cartRDD = input1.catesian(input2)
+	Array[(Int, Int)] = Array((1,3), (1,4), (2,3), (2,4), (1,5), (1,6), (2,5), (2,6), (3,3), 
+	                          (3,4), (4,3), (4,4), (3,5), (3,6), (4,5), (4,6))
+	
+- 숫자필드에 대한 평균구하기	
+	scala> val input = sc.parallelize(List(1,2,3,4,5))
+	input: org.apache.spark.rdd.RDD[Int] = ParallelCollectionRDD[57] at parallelize at <console>:24
+
+	scala> val result=input.aggregate((0, 0))((x, y) => (x._1 + y, x._2 + 1),
+		 |       (x,y) => (x._1 + y._1, x._2 + y._2))
+	result: (Int, Int) = (15,5)
+	
+	scala> val avg = result._1 / result._2.toFloat
+    avg: Float = 3.0
+
+- RDD persist
+   RDD에 대해 persist를 요청하면 RDD를 계산한 노드들은 
+   계산된 값을 파티션에 저장하고 있게 된다.
+   persist는 액션을 수행하기 전에 호출되어야 한다.
+   RDD는 캐시에서 데이터를 삭제 할 수 있도록 unpersist 메소드도 지원한다.
+   
+   val result=input.map(x => x*y)
+   result.pesist(StorageLevel.MEMORY_ONLY)
+   result.pesist(StorageLevel.MEMORY_ONLY_SER)
+   result.pesist(StorageLevel.MEMORY_AND_DISK)
+   result.pesist(StorageLevel.MEMORY_AND_DISK_SER)
+   result.pesist(StorageLevel.DISK_ONLY)
+
+- aggregate
+  rdd의 데이터 타입과 action의 결과 타입이 다를 경우에 사용한다.
+  (0)은 파티션별로 계산을 수행할때 제공되는 초기값이다.
+  parallelize를 이용하여 별도의 파티션에 데이터 를 저장하기 위해 뒤에 숫자 인자를 주었다.
+  aggregate 첫번째 인자는 파티션 별로 수행되고(seqOp)
+  첫번째 인자는 x는 total이고 y는 개별 값이다.
+  2번째 인자는 파티션 별로 수행된 결과를 합쳐준다.(combOp)
+  첫번째 xx는 누적변수이고 tt는 파티션별로 계산된 계별값이다.
+  seqOp의 전체 계산방법은 (초기값 + 누적변수 + 더할값)
+  
+  
+  val inputrdd=sc.parallelize(List(("maths",21),("english",22),("science",31)),3)
+  y._1은 과목이고 y._2는 점수 이다.
+  val result=inputrdd.aggregate(3)((x,y) => (x+y._2),(xx,tt) => (xx+tt))
+  
+  
+  
+  val z=sc.parallelize(List(1,2,3,4,5,6),2)
+
+  val inputrdd=sc.parallelize(List("jump","over","the","wall"),3)
+  val result=inputrdd.aggregate(0)((x,y) => (x+y.length),(xx,tt) => (xx+tt))
+  
+  
+- distributeStatus FUNC 사용
+def myfunc(index:Int,iter:Iterator[(Int)]):Iterator[String]={
+ iter.toList.map(x => "[partID]:"+index+",val:"+x+"]").iterator
+}
+  
+  z.mapPartitionsWithIndex(myfunc)
+  z.aggregate(0)(math.max(_,_),_+_)
+===========================================================================
+dataframe, dataset
+===========================================================================
+/***************************************************
+**case class를 이용한 스키마 정의
+**case class를 이용한 rdd의 정의
+**RDD 데이터의 표출
+**RDD는 show가 없고 take 메소드를 사용해야 한다.
+**show는 dataset에서 사용가능하다.
+**RDD  dataset변환(toDS)
+**dataset에 where filter적용 후 select
+**dataset 형변환
+****************************************************/
+// Define the schema using a case class
+scala> case class Person(name: String, age: Int)
+defined class Person
+
+scala> import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.RDD
+
+scala> val peopleRDD: RDD[Person] = sc.parallelize(Seq(Person("Jacek", 10)))
+peopleRDD: org.apache.spark.rdd.RDD[Person] = ParallelCollectionRDD[0] at parallelize at <console>:27
+
+scala> peopleRDD.show
+<console>:30: error: value show is not a member of org.apache.spark.rdd.RDD[Person]
+       peopleRDD.show
+                 ^
+
+// Automatic schema inferrence from existing RDDs
+scala> val people = peopleRDD.toDS
+people: org.apache.spark.sql.Dataset[Person] = [name: string, age: int]
+
+scala> val teenagers = people.where('age >= 10).where('age <= 19).select('name)
+teenagers: org.apache.spark.sql.DataFrame = [name: string]
+
+scala> val teenagers = people.where('age >= 10).where('age <= 19).select('name).as[String]
+teenagers: org.apache.spark.sql.Dataset[String] = [name: string]
+
+scala> val teenagers = people.where('age >= 10).where('age <= 19).select('name,'age)
+teenagers: org.apache.spark.sql.DataFrame = [name: string, age: int]
+
+scala> val teenagers = people.where('age >= 10).where('age <= 19).select('age).as[String]
+teenagers: org.apache.spark.sql.Dataset[String] = [age: int]
+
+scala> teenagers.show
++-----+
+| name|
++-----+
+|Jacek|
++-----+
+
+/***************************************************
+**dataset을 이용한 TempView 생성
+**TempView를 이용한 sql 수행
+**csv를 이용한 dataset 생성
+**sql 함수의 사용
+****************************************************/
+// 1. Register people Dataset as a temporary view in Catalog
+people.createOrReplaceTempView("people")	
+
+// 2. Run SQL query
+val teenagers = sql("SELECT * FROM people WHERE age >= 10 AND age <= 19")
+scala> teenagers.show
++-----+---+
+| name|age|
++-----+---+
+|Jacek| 10|
++-----+---+
+
+sql("CREATE OR REPLACE TEMPORARY VIEW v1 (key INT, title STRING,genre STRING) USING csv OPTIONS ('path'='/tmp/movies.dat', 'header'='true')")
+
+scala> sql("FROM v1").show
++---+--------------------+--------------------+
+|key|               title|               genre|
++---+--------------------+--------------------+
+|  2|      Jumanji (1995)|Adventure|Childre...|
+|  3|Grumpier Old Men ...|      Comedy|Romance|
+|  4|Waiting to Exhale...|        Comedy|Drama|
+|  5|Father of the Bri...|              Comedy|
+|  6|         Heat (1995)|Action|Crime|Thri...|
+|  7|      Sabrina (1995)|      Comedy|Romance|
+|  8| Tom and Huck (1995)|Adventure|Children's|
+|  9| Sudden Death (1995)|              Action|
+| 10|    GoldenEye (1995)|Action|Adventure|...|
+| 11|  American President|          The (1995)|
+| 12|Dracula: Dead and...|       Comedy|Horror|
+| 13|        Balto (1995)|Animation|Children's|
+| 14|        Nixon (1995)|               Drama|
+| 15|Cutthroat Island ...|Action|Adventure|...|
+| 16|       Casino (1995)|      Drama|Thriller|
+| 17|Sense and Sensibi...|       Drama|Romance|
+| 18|   Four Rooms (1995)|            Thriller|
+| 19|Ace Ventura: When...|              Comedy|
+| 20|  Money Train (1995)|              Action|
+| 21|   Get Shorty (1995)| Action|Comedy|Drama|
++---+--------------------+--------------------+
+only showing top 20 rows
+
+scala> sql("SELECT * FROM v1 WHERE key<3").show
++---+----------------+--------------------+
+|key|           title|               genre|
++---+----------------+--------------------+
+|  1|Toy Story (1995)|Animation|Childre...|
+|  2|  Jumanji (1995)|Adventure|Childre...|
++---+----------------+--------------------+
+
+scala> sql("show tables").show
++--------+--------------------+-----------+
+|database|           tableName|isTemporary|
++--------+--------------------+-----------+
+| default|                land|      false|
+| default|    nonpartition_tab|      false|
+| default|           page_view|      false|
+| default|          part_test2|      false|
+| default|partition_externa...|      false|
+| default|       partition_tab|      false|
+| default|      partition_tab2|      false|
+| default|partition_tab_dat...|      false|
+| default|     partition_table|      false|
+| default|       partition_tmp|      false|
+| default|                tran|      false|
+| default|           type_test|      false|
+| default|         update_test|      false|
+| default|        vw_tran_pipa|      false|
+|        |                  v1|       true|
++--------+--------------------+-----------+
+
+scala> sql("select * from partition_tab limit 10").show
++---+------+--------------------+----+-----+
+| id|  name|          insertdate|year|month|
++---+------+--------------------+----+-----+
+|  1|kangjh|2013-01-01 10:01:...|2013|    1|
+|  2|kangjh|2013-01-02 10:01:...|2013|    1|
+|  3|kangjh|2013-01-03 10:01:...|2013|    1|
+|  4|kangjh|2013-01-04 01:01:...|2013|    1|
+|  5|kangjh|2013-01-05 01:01:...|2013|    1|
+|  6|kangjh|2013-01-06 01:01:...|2013|    1|
+|  7|kangjh|2013-01-07 01:01:...|2013|    1|
+|  8|kangjh|2013-01-08 01:01:...|2013|    1|
+|  9|kangjh|2013-01-09 01:01:...|2013|    1|
+| 10|kangjh|2013-01-10 01:01:...|2013|    1|
++---+------+--------------------+----+-----+
+
+
+scala> sql("desc EXTENDED v1").show
++--------+---------+-------+
+|col_name|data_type|comment|
++--------+---------+-------+
+|key     |int      |null   |
+|title   |string   |null   |
+|genre   |string   |null   |
++--------+---------+-------+
+
+
+/*****************************************************************
+**seq를 이용한 df 생성
+**TempView를 이용한 sql 수행
+**csv를 이용한 dataset 생성
+**sql 함수의 사용
+**orderBy 사용
+int로 정의된 j를 agg(sum('j)) 를 as를 받을 때는 BigInt를 사용한다.
+int로 정의된 j를 agg(max('j)) 를 as를 받을 때는 Int를 사용한다.
+******************************************************************/
+
+val df = Seq((1, 2),(2, 3),(3, 4),(2, 4),(3, 5)).toDF("i", "j")
+
+scala> val query = df.groupBy('i).agg(sum('j)).as[(Int, BigInt)]
+scala> query.show;
++---+------+                                                                    
+|  i|sum(j)|
++---+------+
+|  1|     2|
+|  3|     9|
+|  2|     7|
++---+------+
+scala> query.take(10)
+res0: Array[(Int, BigInt)] = Array((1,2), (3,9), (2,7))
+
+//orderBy 디폴트는 asc
+//컬럼 alias 사용하는 방법 - agg(max('j).as("aggOrdering"))
+scala> val query = df.groupBy('i).agg(max('j).as("aggOrdering")).orderBy("aggOrdering").as[(Int, Int)]
+scala> query.show()
++---+-----------+                                                               
+|  i|aggOrdering|
++---+-----------+
+|  1|          2|
+|  2|          4|
+|  3|          5|
++---+-----------+
+scala> val query = df.groupBy('i).agg(max('j).as("aggOrdering")).orderBy(desc("aggOrdering")).as[(Int, Int)]
+scala> query.show()
++---+-----------+                                                               
+|  i|aggOrdering|
++---+-----------+
+|  3|          5|
+|  2|          4|
+|  1|          2|
++---+-----------+
+
+
+// TempView 사용하기
+val df = Seq((1, 1), (-1, 1),(2,3)).toDF("key", "value")
+df.createOrReplaceTempView("src")
+
+// select 절에서 if 사용 IF( 조건, true일때, false일때) 
+// a < 0 작으면 a를 리턴 크거나 같으면 0을 리턴
+sql("SELECT IF(a < 0, a, 0) FROM (SELECT key a FROM src) temp").show
++-------------------+
+|(IF((a < 0), a, 0))|
++-------------------+
+|                  0|
+|                 -1|
+|                  0|
++-------------------+
+scala> sql("SELECT IF(a > 0, a, 0) as col1 FROM (SELECT key a FROM src) temp").show
++----+
+|col1|
++----+
+|   1|
+|   0|
+|   2|
++----+
+
+
+//RDD를 생성하기위해 SparkContext가 필요한 것 처럼 spark2.0에서 
+//DataFrame을 사용하기위해서는 SparkSession이 필요합니다. 
+//spark shell에서는 SparkSession은 spark으로 정의됩니다.
+//SparkSession은 sparksql을 사용하기 위한 진입점이다.
+//SparkSession은 여러개를 생성할 수 있다.
+//You use the SparkSession.builder method to create an instance of SparkSession.
+//SparkSession을 종료 하기위해서는 spark.stop 명령어를 사용한다.
+
+//spark session의 생성
+
+import org.apache.spark.sql.SparkSession
+val spark: SparkSession = SparkSession.builder
+.appName("My Spark Application") 
+.master("yarn") // avoid hardcoding the deployment environment
+.enableHiveSupport() // self-explanatory, isn't it?
+.config("spark.sql.warehouse.dir", "target/spark-warehouse")
+.getOrCreate
+
+
+- spark에서 hive 데이터베이스 내의 테이블을 그대로 읽어 들일 수 있다.
+- 뿐만아니라 temporary 테이블도 읽을 수 있다.
+scala> spark.catalog.listTables.show
++--------------------+--------+-----------+---------+-----------+
+|                name|database|description|tableType|isTemporary|
++--------------------+--------+-----------+---------+-----------+
+|                land| default|       null|  MANAGED|      false|
+|    nonpartition_tab| default|       null|  MANAGED|      false|
+|           page_view| default|       null|  MANAGED|      false|
+|          part_test2| default|       null| EXTERNAL|      false|
+|partition_externa...| default|       null| EXTERNAL|      false|
+|       partition_tab| default|       null|  MANAGED|      false|
+|      partition_tab2| default|       null|  MANAGED|      false|
+|partition_tab_dat...| default|       null|  MANAGED|      false|
+|     partition_table| default|       null|  MANAGED|      false|
+|       partition_tmp| default|       null|  MANAGED|      false|
+|                tran| default|       null|  MANAGED|      false|
+|           tran_pipa| default|       null|  MANAGED|      false|
+|           type_test| default|       null|  MANAGED|      false|
+|         update_test| default|       null|  MANAGED|      false|
+|        vw_tran_pipa| default|       null|     VIEW|      false|
+|                 src|    null|       null|TEMPORARY|       true|
+|                  v1|    null|       null|TEMPORARY|       true|
++--------------------+--------+-----------+---------+-----------+
+
+- sql 함수를 사용하면 hive에서 사용할 수 있는 모든 형식의 sql을 사용할 수 있다.
+scala> sql("DROP TABLE IF EXISTS type_test")
+res1: org.apache.spark.sql.DataFrame = []
+
+- Creating Empty Dataset — emptyDataset method
+scala> val strings = spark.emptyDataset[String]
+strings: org.apache.spark.sql.Dataset[String] = [value: string]
+
+scala> strings.printSchema
+root
+ |-- value: string (nullable = true)
+
+//Dataset의 생성
+// 1번 방법
+scala> val one = spark.createDataset(Seq(1))
+one: org.apache.spark.sql.Dataset[Int] = [value: int]
+
+scala> one.show
++-----+
+|value|
++-----+
+|    1|
++-----+
+
+//Dataset의 생성
+//2번 방법
+scala> val one = Seq(1).toDS
+one: org.apache.spark.sql.Dataset[Int] = [value: int]
+
+scala> one.show
++-----+
+|value|
++-----+
+|    1|
++-----+
+
+//Creating Dataset With Single Long Column — range methods
+//step의 숫자만큼 증가하고 end보다 작은 dataset을 생성한다.(15는 포함되지 않음)
+scala> spark.range(start = 0, end = 15, step = 1, numPartitions = 5).show
++---+
+| id|
++---+
+|  0|
+|  1|
+|  2|
+|  3|
+|  4|
+|  5|
+|  6|
+.........
+|  14|
++---+
+
+//step의 숫자만큼 증가하고 end보다 작은 dataset을 생성한다.이때 (16는 포함되지 않음)
+scala> spark.range(start = 0, end = 16, step =2 , numPartitions = 5).show
++---+
+| id|
++---+
+|  0|
+|  2|
+|  4|
+|  6|
+.........
+|  14|
++---+
+.........
+#Creating DataFrames from RDDs with Explicit Schema — createDataFrame method
+#아래와 같은 방법으로 RDD를 데이터 프래임으로 전환 할 수 있다.
+var lines=sc.textFile("/tmp/nba.txt")
+
+createDataFrame(rowRDD: RDD[lines], schema: StructType): DataFrame
+
+#UDF 의 등록 방법
+#Accessing UDF Registration Interface — udf Attribute
+//step 1 udf 등록
+spark.udf.register("myUpper", (s: String) => s.toUpperCase)
+//step 2 dataset 생성 a~c를 가진 strs이름을 가진 dataset을 생성
+val strs = ('a' to 'c').map(_.toString).toDS
+//step 3 테이블 등록
+strs.registerTempTable("strs")
+//step 4 UDF의 사용
+scala> sql("SELECT *, myUpper(value) UPPER FROM strs").show
++-----+-----+
+|value|UPPER|
++-----+-----+
+|    a|    A|
+|    b|    B|
+|    c|    C|
++-----+-----+
+
+# hive의 테이블을 이용하여 df 만들기
+scala> val df = spark.table("type_test")
+df: org.apache.spark.sql.DataFrame = [str_col: string, date_col: date ... 5 more fields]
+
+scala> df.show
++-------+----------+--------------------+-------+--------+----+----+
+|str_col|  date_col|           timps_col|dec_col|dec2_col|  c1|  c2|
++-------+----------+--------------------+-------+--------+----+----+
+|   kang|2016-01-02|2016-02-02 02:02:...|     45|45.66000|null|    |
+|   hwa1|      null|2016-02-02 02:02:...|   null|45.77778|null|null|
++-------+----------+--------------------+-------+--------+----+----+
+
+- spark shell에서 context는 하나만 존재할 수 있지만
+- SparkSession은 여러개 존재할 수 있다.
+- spark shell을 띄우면 spark context는 sc라는 이름으로
+- spark session은 spark라는 이름으로 정의된다.
+- rdd를 사용하기위해 Spark context가 필요한 것 처럼
+- 데이터프레임을 생성하기위해서는 Spark session이 필요하다.
+- Spark context available as 'sc' (master = yarn, app id = application_1509580256251_2539).
+- Spark session available as 'spark'.
+scala> val newSession = spark.newSession
+newSession: org.apache.spark.sql.SparkSession = org.apache.spark.sql.SparkSession@122f58a
+- spark session의 종료
+scala> newSession.stop()
+
+- spark session간 공유가 되는 SharedState  
+- SharedState — Shared State Across SparkSessions
+- SharedState takes a SparkContext when created
+Name                     Type 
+-----------------------------------------------
+cacheManager             CacheManager
+externalCatalog          ExternalCatalog
+globalTempViewManager    GlobalTempViewManager
+jarClassLoader           NonClosableMutableURLClassLoader
+listener                 SQLListener
+sparkContext             SparkContext
+warehousePath
+
+- 데이터 셋 다루기
+- 아래의 예제는 0부터 4까지의 숫자타입의 데이터 셋을 생성한다.
+scala> val dataset = spark.range(5)
+dataset: org.apache.spark.sql.Dataset[Long] = [id: bigint]
+//filter operator accepts a Scala function
+dataset.filter(n => n % 2 == 0).count
+
+
+- 데이터 프레임에 대한 plan 출력하기
+//방법 1
+scala> spark.range(1).filter('id === 0).explain(true)
+//방법 2
+scala> spark.range(1).filter(_ == 0).explain(true)
+== Parsed Logical Plan ==
+'Filter ('id = 0)
++- Range (0, 1, step=1, splits=Some(2))
+
+== Analyzed Logical Plan ==
+id: bigint
+Filter (id#41L = cast(0 as bigint))
++- Range (0, 1, step=1, splits=Some(2))
+
+== Optimized Logical Plan ==
+Filter (id#41L = 0)
++- Range (0, 1, step=1, splits=Some(2))
+
+== Physical Plan ==
+*Filter (id#41L = 0)
++- *Range (0, 1, step=1, splits=Some(2))
+
+- 데이터 셋 생성시 아래 단계를 거쳐 생성된다.
+  STEP 1. SparkSession
+  STEP 2. QueryExecution
+  STEP 3. Encoder for the type T of the records
+
+- 데이터 셋의 형변환
+toDS(): Dataset[T]
+toDF(): DataFrame
+toDF(colNames: String*): DataFrame
+
+
+case class Token(name: String, productId: Int, score: Double)
+val data = Seq(
+Token("aaa", 100, 0.12),
+Token("aaa", 200, 0.29),
+Token("bbb", 200, 0.53),
+Token("bbb", 300, 0.42))
+
+- 데이터 to 데이터셋
+val ds = data.toDS
+
+- 데이터 to 데이터프레임
+val df = data.toDF
+
+- 데이터프래임을 데이터셋에 삽입
+val ds = df.as[Token]
+
+- 데이터셋의 스키마 표시
+ds.printSchema
+
+- 데이터프래임의 스키마 표시
+df.printSchema
+
+-현재 작업하고 있는 row의 instance를 표시해 준다.
+df.map(_.getClass.getName).show(false)
+ds.map(_.getClass.getName).show(false)
+
+- Encoders클래스의 사용
+- 자바의 직렬화 프레임워크나 kyro와 같이 자바객체와 바이너리
+- 포멧간의 변환을 처리하는 용도로 사용된다.
+- 인코더는 기존 직렬화 방식과는 다르게 스파크sql내부에서 사용하는(텅스텐엔진) 
+- 바이너리 포멧을 사용함으로써 연산성능과 메모리 효율을 높이는 장점이 있습니다.
+- 데이터셋을 사용하기위해서는 데이터셋 내부 데이터타입에 대한 encoder를 반드시 
+- 지정해야 합니다. 스팍의 경우는 문자열이나 정수 등 기본타입에 대한 인코더 정보를 암묵적
+- 으로 변환 방식을 이용해서 제공하기 때문에 스파크세션의 implicits객체를 임포트 하면
+- 별도의 인코더를 지정하지 않고 사용할 수 있습니다.
+
+방법 1 : 인코더를 사용
+// The domain object for your records in a large dataset
+case class Person(id: Long, name: String)
+import org.apache.spark.sql.Encoders
+scala> val personEncoder = Encoders.product[Person]
+       personEncoder: org.apache.spark.sql.Encoder[Person] 
+       = class[id[0]: bigint, name[0]: string]
+
+scala> personEncoder.schema
+       res0: org.apache.spark.sql.types.StructType 
+	   = StructType(StructField(id,LongType,false), 
+	   StructField(name,StringType,true))
+scala> personEncoder.clsTag
+       res1: scala.reflect.ClassTag[Person] = Person
+       import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+scala> val personExprEncoder = personEncoder.asInstanceOf[ExpressionEncoder[Person]]
+       personExprEncoder: org.apache.spark.sql.catalyst.encoders.ExpressionEncoder[Person] =
+       class[id[0]: bigint, name[0]: string]
+// ExpressionEncoders may or may not be flat
+scala> personExprEncoder.flat
+      res2: Boolean = false
+// The Serializer part of the encoder
+scala> personExprEncoder.serializer
+       res3: Seq[org.apache.spark.sql.catalyst.expressions.Expression] 
+	   = List(assertnotnull(input[0, Person, true], 
+	   top level non-flat input object).id AS id#0L, staticinvoke
+	   (class org.apache.spark.unsafe.types.UTF8String, StringType, fromString, 
+	   assertnotnull(input[0, Person, true], top level non-flat input object).name, true) AS name#1)
+// The Deserializer part of the encoder
+scala> personExprEncoder.deserializer
+       res4: org.apache.spark.sql.catalyst.expressions.Expression 
+	   = newInstance(class Person)
+scala> personExprEncoder.namedExpressions
+       res5: Seq[org.apache.spark.sql.catalyst.expressions.NamedExpression] 
+	   = List(assertnotnull(input[0, Person, true], 
+	   top level non-flat input object).id AS id#2L, 
+	   staticinvoke(class org.apache.spark.unsafe.types.UTF8String, 
+	   StringType, fromString, assertnotnull(input[0, Person, true], 
+	   top level non-flat input object).name, true) AS name#3)
+// A record in a Dataset[Person]
+// A mere instance of Person case class
+// There could be a thousand of Person in a large dataset
+val jacek = Person(0, "Jacek")
+// Serialize a record to the internal representation, i.e. InternalRow
+scala> val row = personExprEncoder.toRow(jacek)
+       row: org.apache.spark.sql.catalyst.InternalRow = [0,0,1800000005,6b6563614a]
+// Spark uses InternalRows internally for IO
+// Let's deserialize it to a JVM object, i.e. a Scala object
+import org.apache.spark.sql.catalyst.dsl.expressions._
+// in spark-shell there are competing implicits
+// That's why DslSymbol is used explicitly in the following line
+scala> val attrs = Seq(DslSymbol('id).long, DslSymbol('name).string)
+       attrs: Seq[org.apache.spark.sql.catalyst.expressions.AttributeReference] 
+	   = List(id#8L,Encoders — Internal Row Converters 63 name#9)
+scala> val jacekReborn = personExprEncoder.resolveAndBind(attrs).fromRow(row)
+       jacekReborn: Person = Person(0,Jacek)
+// Are the jacek instances same?
+scala> jacek == jacekReborn
+       res6: Boolean = true
+
+
+
+
+방법 2 : 인코더를 지정하지 않고 사용
+case class Person(id: Long, name: String)
+import spark.implicits._
+val row1=(1,"kang")
+val row2=(2,"jung")
+val row3=(3,"hwa")
+val data=List(row1,row2,row3)
+val ds=spark.createDataset(data)
+
+
+scala> val personEncoder = Encoders.product[Person]
+personEncoder.schema
+
+val jacek = Person(0, "Jacek")
+val row = personExprEncoder.toRow(jacek)
+
+
+- createDataFrame을 사용한 데이터프레임 생성
+val lines = sc.textFile("/tmp/movies2.dat")
+lines: org.apache.spark.rdd.RDD[String] = /tmp/movies2.dat MapPartitionsRDD[3] at textFile at <console>:24
+val headers = lines.first
+headers: String = id,title,genre
+import org.apache.spark.sql.types.{StructField, StringType}
+val fs = headers.split(",").map(f => StructField(f, StringType))
+import org.apache.spark.sql.types.StructType
+val schema = StructType(fs)
+val noheaders = lines.filter(_ != headers)
+import org.apache.spark.sql.Row
+val rows = noheaders.map(_.split(",")).map(a => Row.fromSeq(a))
+val movies = spark.createDataFrame(rows, schema)
+movies.printSchema
+
+
+- Creating DataFrame from CSV file
+val lines = sc.textFile("/tmp/movies2.dat")
+lines: org.apache.spark.rdd.RDD[String] = /tmp/movies2.dat MapPartitionsRDD[3] at textFile at <console>:24
+val headers = lines.first
+headers: String = id,title,genre
+
+scala> lines.count
+res2: Long = 3885
+
+case class Movies(id: Int, title: String, jenre: String)
+val noheader = lines.filter(_ != header)
+val Mov = noheader.map(_.split(",")).map(r => Movies(r(0).toInt, r(1),r(2)))
+scala> val df = Mov.toDF
+df: org.apache.spark.sql.DataFrame = [id: int, title: string ... 1 more field]
+
+scala> df.show
++---+--------------------+--------------------+
+| id|               title|               jenre|
++---+--------------------+--------------------+
+|  1|    Toy Story (1995)|Animation|Childre...|
+|  2|      Jumanji (1995)|Adventure|Childre...|
+|  3|Grumpier Old Men ...|      Comedy|Romance|
+|  4|Waiting to Exhale...|        Comedy|Drama|
+|  5|Father of the Bri...|              Comedy|
+|  6|         Heat (1995)|Action|Crime|Thri...|
+|  7|      Sabrina (1995)|      Comedy|Romance|
+|  8| Tom and Huck (1995)|Adventure|Children's|
+|  9| Sudden Death (1995)|              Action|
+| 10|    GoldenEye (1995)|Action|Adventure|...|
+| 11|  American President|          The (1995)|
+| 12|Dracula: Dead and...|       Comedy|Horror|
+| 13|        Balto (1995)|Animation|Children's|
+| 14|        Nixon (1995)|               Drama|
+| 15|Cutthroat Island ...|Action|Adventure|...|
+| 16|       Casino (1995)|      Drama|Thriller|
+| 17|Sense and Sensibi...|       Drama|Romance|
+| 18|   Four Rooms (1995)|            Thriller|
+| 19|Ace Ventura: When...|              Comedy|
+| 20|  Money Train (1995)|              Action|
++---+--------------------+--------------------+
+only showing top 20 rows
+
+
+- Creating DataFrame from CSV files using spark-csv module
+val df = spark.read.format("com.databricks.spark.csv").option("header", "true").load("/tmp/movies2.dat")
+scala> val df = spark.read.format("com.databricks.spark.csv").option("header", "true").load("/tmp/movies2.dat")
+17/11/27 14:52:22 WARN datasources.DataSource: Error while looking for metadata directory.
+df: org.apache.spark.sql.DataFrame = [id: string, title: string ... 1 more field]
+
+scala> df.printSchema
+root
+ |-- id: string (nullable = true)
+ |-- title: string (nullable = true)
+ |-- genre: string (nullable = true)
+
+scala> df.show
++---+--------------------+--------------------+
+| id|               title|               genre|
++---+--------------------+--------------------+
+|  1|    Toy Story (1995)|Animation|Childre...|
+|  2|      Jumanji (1995)|Adventure|Childre...|
+|  3|Grumpier Old Men ...|      Comedy|Romance|
+|  4|Waiting to Exhale...|        Comedy|Drama|
+|  5|Father of the Bri...|              Comedy|
+|  6|         Heat (1995)|Action|Crime|Thri...|
+|  7|      Sabrina (1995)|      Comedy|Romance|
+|  8| Tom and Huck (1995)|Adventure|Children's|
+|  9| Sudden Death (1995)|              Action|
+| 10|    GoldenEye (1995)|Action|Adventure|...|
+| 11|  American President|          The (1995)|
+| 12|Dracula: Dead and...|       Comedy|Horror|
+| 13|        Balto (1995)|Animation|Children's|
+| 14|        Nixon (1995)|               Drama|
+| 15|Cutthroat Island ...|Action|Adventure|...|
+| 16|       Casino (1995)|      Drama|Thriller|
+| 17|Sense and Sensibi...|       Drama|Romance|
+| 18|   Four Rooms (1995)|            Thriller|
+| 19|Ace Ventura: When...|              Comedy|
+| 20|  Money Train (1995)|              Action|
++---+--------------------+--------------------+
+only showing top 20 rows
+
+
+
+- Creating DataFrame from CSV files using spark-csv module
+	scala> val df = spark.read.format("com.databricks.spark.csv").option("header", "true").load("/tmp/movies2.dat");
+	17/11/29 10:33:29 WARN datasources.DataSource: Error while looking for metadata directory.
+	df: org.apache.spark.sql.DataFrame = [id: string, title: string ... 1 more field]
+
+	scala> df.show
+	+---+--------------------+--------------------+
+	| id|               title|               genre|
+	+---+--------------------+--------------------+
+	|  1|    Toy Story (1995)|Animation|Childre...|
+	|  2|      Jumanji (1995)|Adventure|Childre...|
+	|  3|Grumpier Old Men ...|      Comedy|Romance|
+	|  4|Waiting to Exhale...|        Comedy|Drama|
+	|  5|Father of the Bri...|              Comedy|
+	|  6|         Heat (1995)|Action|Crime|Thri...|
+	|  7|      Sabrina (1995)|      Comedy|Romance|
+	|  8| Tom and Huck (1995)|Adventure|Children's|
+	|  9| Sudden Death (1995)|              Action|
+	| 10|    GoldenEye (1995)|Action|Adventure|...|
+	| 11|  American President|          The (1995)|
+	| 12|Dracula: Dead and...|       Comedy|Horror|
+	| 13|        Balto (1995)|Animation|Children's|
+	| 14|        Nixon (1995)|               Drama|
+	| 15|Cutthroat Island ...|Action|Adventure|...|
+	| 16|       Casino (1995)|      Drama|Thriller|
+	| 17|Sense and Sensibi...|       Drama|Romance|
+	| 18|   Four Rooms (1995)|            Thriller|
+	| 19|Ace Ventura: When...|              Comedy|
+	| 20|  Money Train (1995)|              Action|
+	+---+--------------------+--------------------+
+	only showing top 20 rows
+
+
+	scala> df.printSchema
+	root
+	 |-- id: string (nullable = true)
+	 |-- title: string (nullable = true)
+	 |-- genre: string (nullable = true)
+
+
+- Querying DataFrame
+
+	scala> df.select("title", "genre").show	
+		
+	scala> df.groupBy("genre").count().show(5);
+	+--------------------+-----+
+	|               genre|count|
+	+--------------------+-----+
+	| Professore! (Io ...|    1|
+	|Adventure|Sci-Fi|...|    2|
+	|Comedy|Horror|Thr...|    2|
+	|    Adventure|Sci-Fi|    7|
+	|Children's|Comedy...|    2|
+	+--------------------+-----+	
+
+	scala> df.groupBy("genre").count().sort($"count".desc).show(5);
+	+--------------+-----+                                                          
+	|         genre|count|
+	+--------------+-----+
+	|         Drama|  585|
+	|        Comedy|  421|
+	|  Comedy|Drama|  121|
+	|        Horror|  118|
+	|Comedy|Romance|  111|
+	+--------------+-----+
+
+	scala> import org.apache.spark.sql.functions._
+	import org.apache.spark.sql.functions._
+
+	scala> df.groupBy("genre").count().sort(desc("count")).show(5)
+	+--------------+-----+                                                          
+	|         genre|count|
+	+--------------+-----+
+	|         Drama|  585|
+	|        Comedy|  421|
+	|  Comedy|Drama|  121|
+	|        Horror|  118|
+	|Comedy|Romance|  111|
+	+--------------+-----+
+	only showing top 5 rows
+
+	scala> df.select("genre").distinct.count
+    res8: Long = 572
+
+- Register a DataFrame as a named temporary table to run SQL.
+
+	scala> df.registerTempTable("movies")
+	warning: there was one deprecation warning; re-run with -deprecation for details
+
+	scala> val sql = spark.sql("SELECT count(*) AS count FROM movies")
+	sql: org.apache.spark.sql.DataFrame = [count: bigint]
+
+	scala> sql.explain
+	== Physical Plan ==
+	*HashAggregate(keys=[], functions=[count(1)])
+	+- Exchange SinglePartition
+	   +- *HashAggregate(keys=[], functions=[partial_count(1)])
+		  +- *FileScan csv [] Batched: false, Format: CSV, Location: InMemoryFileIndex[hdfs://koreadev/tmp/movies2.dat], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<>
+
+	scala> sql.show
+	+-----+
+	|count|
+	+-----+
+	| 3883|
+	+-----+
+	scala> val count = sql.collect()(0).getLong(0)
+	count: Long = 3883
+	
+    scala> df.filter($"genre".like("Act%")).count()
+    res16: Long = 394
+
+	scala> df.filter($"genre".like("Act%")).show
+	+---+--------------------+--------------------+
+	| id|               title|               genre|
+	+---+--------------------+--------------------+
+	|  6|         Heat (1995)|Action|Crime|Thri...|
+	|  9| Sudden Death (1995)|              Action|
+	| 10|    GoldenEye (1995)|Action|Adventure|...|
+	| 15|Cutthroat Island ...|Action|Adventure|...|
+	| 20|  Money Train (1995)|              Action|
+	| 21|   Get Shorty (1995)| Action|Comedy|Drama|
+	| 42|Dead Presidents (...|  Action|Crime|Drama|
+	| 44|Mortal Kombat (1995)|    Action|Adventure|
+	| 51|Guardian Angel (1...|Action|Drama|Thri...|
+	| 70|From Dusk Till Da...|Action|Comedy|Cri...|
+	| 71|    Fair Game (1995)|              Action|
+	| 89| Nick of Time (1995)|     Action|Thriller|
+	| 95| Broken Arrow (1996)|     Action|Thriller|
+	| 98|     Shopping (1994)|     Action|Thriller|
+	|110|   Braveheart (1995)|    Action|Drama|War|
+	|112|Rumble in the Bro...|Action|Adventure|...|
+	|139|       Target (1995)|        Action|Drama|
+	|145|     Bad Boys (1995)|              Action|
+	|153|Batman Forever (1...|Action|Adventure|...|
+	|160|        Congo (1995)|Action|Adventure|...|
+	+---+--------------------+--------------------+
+	only showing top 20 rows
+	
+- Example Datasets	
+  - Row
+    length or size - Row knows the number of elements (columns).
+	schema - Row knows the schema
+	
+	scala> import org.apache.spark.sql.Row
+	import org.apache.spark.sql.Row
+
+	scala> val row = Row(1, "hello")
+	row: org.apache.spark.sql.Row = [1,hello]
+
+	타입을 지정하지 않고 가져오는 경우는 아래처럼 타입이 아래처럼된다.
+	value of type Any
+	
+	scala> row(1)
+	res18: Any = hello
+
+	scala> row.get(1)
+	res19: Any = hello
+	
+    You can query for fields with their proper types using getAs with an index
+	scala> val row = Row(1, "hello")
+	row: org.apache.spark.sql.Row = [1,hello]
+
+	scala> row.getAs[Int](0)
+	res20: Int = 1
+
+	scala> row.getAs[String](1)
+	res21: String = hello
+
+
+	scala> Row(1, "hello")
+	res23: org.apache.spark.sql.Row = [1,hello]
+
+	scala> Row.fromSeq(Seq(1, "hello"))
+	res24: org.apache.spark.sql.Row = [1,hello]
+
+	scala> Row.fromTuple((0, "hello"))
+	res25: org.apache.spark.sql.Row = [0,hello]
+
+	scala> Row.merge(Row(1), Row("hello"))
+	res26: org.apache.spark.sql.Row = [1,hello]
+
+- Schema — Structure of Data
+
+	scala>import org.apache.spark.sql.types.StructType
+			val schemaUntyped = new StructType()
+			.add("a", "int")
+			.add("b", "string")
+	
+	scala> schemaUntyped.printTreeString
+	root
+	 |-- a: integer (nullable = true)
+	 |-- b: string (nullable = true)
+		
+	scala>import org.apache.spark.sql.types.{IntegerType, StringType}
+			val schemaTyped = new StructType()
+			.add("a", IntegerType)
+			.add("b", StringType)
+
+	scala> schemaTyped.printTreeString
+	root
+	 |-- a: integer (nullable = true)
+	 |-- b: string (nullable = true)
+	
+	
+	
+- As of Spark 2.0, you can describe the schema of your strongly-typed datasets using
+encoders.
+	import org.apache.spark.sql.Encoders
+	scala> Encoders.INT.schema.printTreeString
+	root
+	|-- value: integer (nullable = true)
+	scala> Encoders.product[(String, java.sql.Timestamp)].schema.printTreeString
+	root
+	|-- _1: string (nullable = true)
+	|-- _2: timestamp (nullable = true)
+	case class Person(id: Long, name: String)
+	scala> Encoders.product[Person].schema.printTreeString
+	root
+	|-- id: long (nullable = false)
+	|-- name: string (nullable = true)
+	
+- Implicit Schema	
+
+val df = Seq((0, s"""hello\tworld"""), (1, "two spaces inside")).toDF("label", "sentence")
+scala> df.printSchema
+root
+|-- label: integer (nullable = false)
+|-- sentence: string (nullable = true)
+scala> df.schema
+res0: org.apache.spark.sql.types.StructType = StructType(StructField(label,IntegerType,false), StructField(sentence,StringType,true))
+scala> df.schema("label").dataType
+res1: org.apache.spark.sql.types.DataType = IntegerType
+
+- StructType — Data Type for Schema Definition
+
+    schemaUntyped == schemaTyped
+	
+	import org.apache.spark.sql.types.StructType
+	val schemaUntyped = new StructType()
+	.add("a", "int")
+	.add("b", "string")
+
+	import org.apache.spark.sql.types.{IntegerType, StringType}
+	
+	val schemaTyped = new StructType()
+	.add("a", IntegerType)
+	.add("b", StringType)
+
+scala> schemaUntyped == schemaTyped
+res0: Boolean = true
+
+- 아래와 같은 방법으로 StructType을 추가할 수 있다.
+  You can add a new StructField to your StructType
+
+
+
+
+
+
+
+// json data preparation 
+$> vi /tmp/score.json
+{"name":"Foo","score": 50},{"name":"Bar","score": 10}
+
+bash-4.1$ hdfs dfs -put -f /tmp/score.json /tmp/
+
+// json을 읽어들여서 파이프 라인을 통해 csv로 전환하는예제
+scala> :paste
+// Entering paste mode (ctrl-D to finish)
+
+spark.read 
+.format("json") 
+.load("/tmp/score.json") 
+.select("name", "score") 
+.where($"score" > 15) 
+.write 
+.format("csv") 
+.save("/tmp/output-csv1") 
+
+// Exiting paste mode, now interpreting.
+
+//result verify
+bash-4.1$ hdfs dfs -ls /tmp/output-csv
+Found 2 items
+-rw-r-----   3 hive supergroup          0 2017-11-24 16:17 /tmp/output-csv/_SUCCESS
+-rw-r-----   3 hive supergroup          7 2017-11-24 16:17 /tmp/output-csv/part-00000-acd57c9c-beac-4465-b14f-cdd140de4ecd.csv
+bash-4.1$ hdfs dfs -cat /tmp/output-csv/part-00000-acd57c9c-beac-4465-b14f-cdd140de4ecd.csv
+Foo,50
+
+// json을 읽어들여서 파이프 라인을 통해 콘솔에 표시하는 예제
+load부분에는 경로를 지정할때 directory를 지정해야함.
+'basePath' must be a directory
+
+
+- spark.version 표시
+scala> spark.version
+res0: String = 2.2.0-SNAPSHOT
+
+- 현재 import된 패키지를 표시해준다.
+scala> :imports
+1) import spark.implicits._ (59 terms, 38 are implicit)
+2) import spark.sql (1 terms)
+
+- 주요 액션
+  first,take(3),collect,count
+
+- scala쉘에서 줄바꿈이나 복사 붙여넣기시
+  :paste라고 해준다.
+  줄바꿈을 할때는 |를 이용한다.
+
+- spark은 하나의 드라이버 프로그램(SparkContext)과 
+	다수의 노드에서 여러개의 Executor가 분산실행된다.
+
+- spark shell을 실행하면 sc가 자동생성된다.
+	spark을 단독 어플리케이션으로 사용하기 위해서는 
+	SparkContext를 직접 초기화 해줘야 한다.
+	RDD를 생성하기위해서는 SparkContext가 필요하다.
+
+- pyspark로 작성된 단독프로그램을 실행 하기위해서는
+	spark-submit 쉘스크립트를 사용해야한다.
+	spark-submit는 파이썬에서 스파크를 연동하는데 필요한 작업들을 포함하고 있다.
+	ex)spark-submit my_script.py
+
+- sc 초기화 방법
+	setAppName는 application을 구별하기 위한 id와 같은 역할을 하고
+	setMaster 부분은 spark을 실행할 cluster를 적어주는 부분이다.
+	local은 따로 접속할 필요가 없을을 나타내는 특수한 값이다.
+	Spark context available as 'sc' (master = yarn, app id = application_1509580256251_4148).
+	
+	import org.apache.spark._
+	val conf = new SparkConf().setMaster("local").setAppName("basicavgwithkyro");
+	val conf = new SparkConf().setMaster("yarn").setAppName("basicavgwithkyro");
+	val sc = new SparkContext(conf)
+	
+	
+- 2014~2016 시즌까지 NBA 선수의 성적을 분석한다.  
+   - STEP 1
+	 csv 파일에는 년도가 없어서 
+	 년도를 삽입하는 과정입니다. 해석을 하면 line을 x로 정의했고 
+	 filter 함수를 이용해서 x에 ","가 있는 라인만 걸렀습니다.
+	
+	 for (i <- 2014 to 2016) {
+		 println(i)
+		 val yearStats = sc.textFile(s"c:\\dataset\\nba\\$i\*")
+		 yearStats.filter(x => x.contains(",")).map(x =>  (i,x)).saveAsTextFile(s"c:\\dataset\\nba\\addyear\\$i")
+	 }
+
+   - STEP 2 
+      아래 예제는 필터는 “FG”문자가 포함된 라인은 제외합니다.
+	  *는 ""으로 치환하고 NULL은 계산을 위해 0으로 치환합니다.
+
+	  val stats=sc.textFile("c:\\dataset\\nba\\addyear\\*\\*").repartition(sc.defaultParallelism)
+	  stats: org.apache.spark.rdd.RDD[String] = MapPartitionsRDD[37] at repartition at <console>:30 
+	  //filter out junk rows, clean up data entry errors as well
+	  val filteredStats=stats.filter(line => !line.contains("FG%")).filter(line => line.contains(",")).map(line => line.replace("*","").replace(",,",",0,"))
+	  filteredStats.cache()
+	
+   - STEP 3
+     process stats and save as map
+     val txtStat = Array("FG","FGA","FG%","3P","3PA","3P%","2P","2PA","2P%","eFG%","FT","FTA","FT%","ORB","DRB","TRB","AST","STL","BLK","TOV","PF","PTS")
+     val aggStats = processStats(filteredStats,txtStat).collectAsMap
+
+//collect rdd into map and broadcast
+val broadcastStats = sc.broadcast(aggStats)	

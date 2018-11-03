@@ -1,0 +1,13 @@
+package com.citi.tran;
+
+public class ReflectionTestParamCon {
+	public  ReflectionTestParamCon(String arg) {
+	    System.out.println("call String arg constructor");
+	}	
+	public void methodA() {
+	    System.out.println("call method A");
+	}
+	public void methodB(String str) {
+	    System.out.println("call method B : " + str);
+	}
+}

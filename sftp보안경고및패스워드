@@ -1,0 +1,20 @@
+#!/usr/bin/expect -f
+
+set id [lindex $argv 0]
+set pw [lindex $argv 1]
+set host [lindex $argv 2]
+
+set timeout -1
+
+#sleep 0.5
+spawn sftp ${id}@${host}
+#sleep 0.5
+expect "(yes/no)?:"
+send "yes\r"
+expect "password:"
+send "${pw}\r"
+
+expect "sftp>"
+send "bye\r"
+#sleep 0.5
+exit 

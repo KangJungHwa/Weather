@@ -1,0 +1,38 @@
+package com.citi.tran;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+
+public class ReflectionTestMain {
+
+	public static void main(String[] args) {
+		try {
+			/*생성자가 파라메터가 없는 경우*/ 
+			Class cls=Class.forName("com.citi.tran.ReflectionTest");
+			Object obj = cls.newInstance();	
+			/*생성자가 파라메터가 없고 메소드 인자도 없는 경우*/ 
+			Method mth = cls.getMethod("methodA");
+			mth.invoke(obj);
+			/*생성자가 파라메터가 없는 경우 메소드 인자가 있는 경우*/ 
+			Class[] mthParamCls = new Class[] {String.class};
+			Object[] mthParamObj = new Object[] {"mathod call with param"};
+			Method mth2 = cls.getMethod("methodB",mthParamCls);
+			mth2.invoke(obj, mthParamObj);
+
+			/*생성자에 파라메터를 정의해서 생성자를 통해 필요한 파라메터를 전달한는 것도 하나의 방법이다.*/
+			Class clsParam=Class.forName("com.citi.tran.ReflectionTestParamCon");
+			Class[] conParamCls = new Class[] {String.class};
+			Object[] conParamObj = new Object[] {"constract call with param"};
+			Constructor con = clsParam.getConstructor(conParamCls);
+			Object conObj = con.newInstance(conParamObj);		
+			/*생성자에 파라메텅 있고 메소드에도 파라메터가 있는경우.*/
+			Class[] mthParamCls1 = new Class[] {String.class};
+			Object[] mthParamObj1 = new Object[] {"mathod call with param!!!!!!!!!!!"};
+			Method mth3 = cls.getMethod("methodB",mthParamCls1);
+			mth3.invoke(obj, mthParamObj1);
+			
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+	}
+}

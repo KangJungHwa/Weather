@@ -1,0 +1,30 @@
+HDFS 스냅샷 만들기
+
+11, l2, l4 테이블 디렉토리 이하 디렉토리에 snapshot을 생성한다.
+클라우데라 매니저를 통해서도 할수 있음
+
+1. 스냅샷 허용 
+   hdfs dfsadmin -allowSnapshot  /tmp/important-dir
+2. 스냅샷 생성
+   hdfs dfs -createSnapshot /tmp/important-dir first-snapshot
+3. 스냅샷 삭제
+   hadoop dfs -deleteSnapshot $path $snapshotName
+4. 스냅샷 디렉토리 조회
+   hadoop lsSnapshottableDir $path $snapshotName   
+5. 스냅샷 이름변경   
+   hadoop dfs -renameSnapshot $path $oldName $newName
+6. 스냅샷간의 차의 비교
+    hadoop snapshotDiff $path $fromSnapshot $toSnapshot
+	+ The file/directory has been created.
+	– The file/directory has been deleted.
+	M The file/directory has been modified.
+	R The file/directory has been renamed.
+7. - 스냅샷이 생성된 디렉토리는 슈퍼유저도 삭제 할 수 없음
+   hdfs dfs -rm -r -skipTrash /tmp/important-dir
+8. 스냅샷 내의 파일은 삭제가 가능함 스냅샷 디렉토리 하위디렉토리가 삭제 가능한지 확인해야함.
+   hdfs dfs -rm -r /tmp/important-dir/important-file.txt
+9. 스냅샷 디렉토리에서 파일 읽기
+   hdfs dfs -cat /tmp/important-dir/.snapshot/first-snapshot/important-file.txt
+10. 스냅샷 디렉토리에서 파일복원
+   hdfs dfs -cp /tmp/important-dir/.snapshot/first-snapshot/important-file.txt /tmp/important-dir
+   hdfs dfs -cat /tmp/important-dir/important-file.txt

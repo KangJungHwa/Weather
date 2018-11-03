@@ -1,0 +1,11 @@
+1. proxy node- daemons, agent 삭제  yum remove cloudera-manager-daemons-5.11.0* cloudera-manager-agent-5.11.0* cloudera-manager-server-5.11.0*
+2. all node - daemons, agent, server 삭제  yum remove cloudera-manager-daemons-5.11.0* cloudera-manager-agent-5.11.0*
+3. all node- cm_processes 파일시스템 삭제umount cm_processes
+4. proxy node/etc/yum.repos.d/ 레포파일을 5.10.1을 포인팅 하도록 수정하고baseurl = https://archive.cloudera.com/cm5/redhat/6/x86_64/cm/5.10.1/scp /etc/yum.repos.d/cloudera-manager.repo root@data1:/etc/yum.repos.d/
+5. all node chache 삭제yum clean all6. proxy nodeyum install cloudera-manager-daemons-5.10.1* cloudera-manager-agent-5.10.1* cloudera-manager-server-5.10.1*7. all node yum install cloudera-manager-daemons-5.10.1* cloudera-manager-agent-5.10.1* 
+8. proxy nodedb.properties 수정 mysql pointingcp /etc/cloudera-scm-server/db.properties.rpmsave /etc/cloudera-scm-server/db.properties
+9. all node cd /etc/cloudera-scm-agent/config.iniCloudera manager pointingcp config.ini.rpmsave config.ini
+10. Cloudera Manager로 들어가면 agent를 업그래이드 하겠냐는 메세지가    뜨는데 skip하고 cms만 업그래이드를 진행한다.
+11. management service start 시 에러가 발생하는경우unknown version of the versioned leveldb store가 발생하는 경우This could be either permissions issue under /var/lib/cloudera-service-monitor or corrupted LevelDB data.Workaround, if you don't intend to scroll back to past service events, and would like to start SMON you can re-initilaise SMON LevelDB location. 1. Stop Service Monitor2. [bash]$ mv /var/lib/cloudera-service-monitor /var/lib/cloudera-service-monitor.moved3. Start SMON, this will initialise your Service Monitor LevelDB/ts data 
+ 참고사항 <under replicate 블록 정리하기>
+hdfs dfs -setrep -w 3 <hdfs path>

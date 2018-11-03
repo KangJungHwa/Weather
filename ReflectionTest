@@ -1,0 +1,13 @@
+package com.citi.tran;
+
+public class ReflectionTest {
+	public ReflectionTest() {
+		System.out.println("call constractor no param");
+	}
+	public void methodA() {
+	    System.out.println("call no param method A");
+	}
+	public void methodB(String str) {
+	    System.out.println("call method B : " + str);
+	}
+}
