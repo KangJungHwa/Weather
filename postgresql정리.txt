@@ -1,0 +1,147 @@
+-- 유저생성
+create user kang; 
+CREATE USER TEST2 PASSWORD 'TEST2';
+-- 데이터베이스 생성
+create database kangdb ENCODING 'UTF-8' TEMPLATE template1;
+alter user kang with encrypted password 'kang';
+GRANT ALL PRIVILEGES ON DATABASE kangdb TO kang;
+ALTER DATABASE kangdb OWNER TO kang;
+
+데이터베이스 생성시에 기본적으로 템플릿을 지정하지 않으면 template1을 사용한다.
+사용자가 추가하고 싶은 객체를 template1에 추가하면 다음 생성 시 해당객체를 포함하여 생성할 수 있다. 
+template0를 사용하면 encoding, 로케일 등을 지정할 수 있다.
+
+--스키마생성
+스키마 생성은 해당 데이터베이스로 이동하여 생성해야 한다.
+CREATE SCHEMA kangschema;   
+
+   
+-- 테이블스패이스 생성	
+PostgreSQL 운영 체제 사용자 가 소유 한 기존의 빈 디렉토리 여야함
+데이터베이스 슈퍼유저로 생성해야 함
+테이블스패이스는 테이블생성시 로케이션을 지정하지만 default_tablespace 속성을 지정하여
+같은 데이터베이스의 모든테이블을 하나의 위치에 저장할 수 있다.
+
+-- 테이블스패이스 환경성정하고 테이블 만들기
+   주의해야 할 점은 data_directory($PGDATA) 밑에 테이블 스패스를 만들면 않된다.
+   만들기전에 디렉토리 생성을 해야 하며 권한을 확인해야 한다. 
+CREATE TABLESPACE kangspace LOCATION 'C:\dataset\kangspace';
+SET default_tablespace = kangspace;
+CREATE TABLE kangschema.foo(id int, name varchar); 
+
+-- 테이블스패이스를 지정하여 테이블과 인덱스 생성
+CREATE TABLESPACE kangindex LOCATION 'C:\dataset\kangindex';
+SET default_tablespace = kangindex;
+CREATE UNIQUE INDEX id_idx ON kangschema.foo(id);
+
+-- 테이블스패이스에 테이블생성권한 일반사용자에게 주기
+GRANT CREATE ON TABLESPACE kangindex to public;
+GRANT CREATE ON TABLESPACE kangspace to public;
+
+--사용자 세션 종료 방법
+select * from pg_stat_activity
+위의 쿼리로 pid를 알아낸후 아래세션으로 종료한다.   
+select pg_terminate_backend(PID);   
+
+--아래 쿼리로 실행중인 쿼리를 중단 할 수 있다.
+select pg_cancel_backend(PID)        
+   
+-- 데이터베이스에 대한 oid 값확인하기
+select * from pg_databases;   
+   
+-- 테이블스패이스의 테이블 다른위치로 옮기기 
+   new_disk라는 테이블스패이스를 다른 위치에 생성한후
+   ALTER 명령어에 의해 테이블 스패이스 위치를 변경해준다.
+   ALTER TABLE t_growing_fast SET TABLESPACE new_disk;
+ 
+-- 테이블스패이스의 전체 테이블 다른 테이블스패이스롤 옮기긱  
+ALTER TABLE ALL IN TABLESPACE pg_default SET TABLESPACE new_disk;
+
+-- 데이터베이스에 대한 temp_tablespace 지정
+   아래의 경우 중복된것처럼 보이지만 ts3보다 ts1,ts2를 더 사용하기 위한 조치이다.
+ALTER DATABASE your_database SET temp_tablespaces = 'ts1', 'ts1', 'ts2', 'ts2', 'ts3'
+
+-- CSV 파일 테이블 로드
+COPY persons(first_name,last_name,dob,email) 
+FROM 'C:\tmp\persons.csv' DELIMITER ',' CSV HEADER;
+
+
+-- 주요 세팅 확인하기
+SELECT name, setting
+	FROM pg_settings;
+	
+--information_schema의 테이블 리스트
+select * from information_schema.tables
+
+--information_schema의 펑션리스트
+SELECT *
+FROM information_schema.routines where routine_name like '%table%'
+
+--테이블스패이스 로케이션 보기
+select a.*, pg_tablespace_location(oid) from pg_tablespace a;
+
+-- 사용자 정보보기
+select * from pg_user;
+SELECT * FROM PG_SHADOW;
+
+-- 사용자가 수행한 쿼리보기
+SELECT *
+FROM pg_stat_activity 
+
+-- 실행중 쿼리 종료
+SELECT pg_cancel_backend(procpid);
+
+-- idle 쿼리 종료
+SELECT pg_terminate_backend(procpid);
+
+-- vacuum 커맨드 실행 ANALYZE를 수행한다.
+VACUUM (VERBOSE, ANALYZE);
+
+-- 데이터베이스 사이즈
+select datname, pg_size_pretty(pg_database_size(datname))
+from pg_database
+order by pg_database_size(datname) desc;
+
+--테이블의 사이즈
+SELECT pg_size_pretty (pg_total_relation_size ( ' tablename '));
+
+--사용자가 수행한 쿼리의 사이즈 아는 방법
+  1. 사용자가 수행한 쿼리를 이용하여 임시 테이블을 생성한다.
+     CREATE TEMPORARY TABLE query_out AS SELECT * FROM devices WHERE country = 'US';
+  2. 임시테이블의 사이즈를 조회한다.
+     SELECT pg_total_relation_size('query_out');
+
+--중복제거 쿼리
+DELETE FROM customers WHERE ctid NOT IN
+(SELECT max(ctid) FROM customers GROUP BY customers.*) ;
+
+create user kang2 identified by kang default tablespace kangspace;
+
+--Postgresql에서 스키마 
+  테이터베이스내에서 논리적으로 구분된 계층이다.
+  스키마간에는 조인이 가능하다.
+  스키마를 사용하면 여러사용자가 서로 출돌없이 하나의 데이터베이스를 사용하는 것이 가능하다.
+  
+  동일 데이터베이스(Database)라도 스키마(Schema)가 다르면 동일한 이름의 테이블이 존재할 수 있는데, 
+  이때는 Search Path에 순서대로 테이블을 찾게 된다.
+  이런 경우 혼란의 소지가 될 수 있으므로 이름이 같은 테이블은 생성하지 않거나, 
+  테이블 접근시 항상 스키마 이름을 붙여 주는 방법을 사용해야 한다.
+   Database의 기본 Search Path를 변경하는 것도 가능하며 이때는 ALTER DATABASE 구문을 사용한다.
+
+--데이터베이스(Database)의 기본 Search Path 변경
+   ALTER DATABASE kang SET search_path TO public, Admin;
+
+   
+-- 임의의 데이터 생성하기
+INSERT INTO kangschema.foo
+  SELECT i, md5(random()::text)
+  FROM generate_series(1, 1000000) AS i;
+
+--테이블의 사이즈 파악
+SELECT pg_size_pretty( pg_total_relation_size('mytbl'));
+  
+  select * from pg_relation_size('kangschema.table_100byte')
+  
+  select * from pg_stat_statements where query like '%table_100byte%' and rows <> 0
+
+select name from kangschema.table_100byte;
