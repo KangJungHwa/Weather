@@ -34,6 +34,7 @@
    
 4. kudu admin
    https://kudu.apache.org/docs/administration.html   
+   http://www.doanduyhai.com/blog/?p=13466
    
 As soon as users learn that Kudu sits completely outside of HDFS and the rest of the Hadoop ecosystem, 
 the common thinking is to start isolating drives for Kudu versus HDFS. 
