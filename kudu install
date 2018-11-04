@@ -1,0 +1,68 @@
+1. Master server
+   마스터 서버에는 사용자 테이블에 대한 메타 데이터 만 포함됩니다. 
+   따라서 스토리지, 메모리 및 컴퓨팅 리소스 요구 사항은 태블릿 서버보다 상당히 적습니다.
+   세 개의 마스터 서버가 존재하며 각 서버는 마스터 서버가 유지 관리하는 시스템 카탈로그 
+   테이블 (메타 데이터)에 대한 단일 태블릿을 관리합니다. 
+   이 태블릿 중 하나는 리더로 선출되고 나머지는이 데이터에 고 가용성을 제공하는 추종자입니다. 
+   마지막으로 각 마스터 서버에 WAL 로그가 있습니다.
+   master의 wal 과 data 디스크도 별도의 ssd에 설치함울 추천함 
+   (master node 1,2,3에 설치)
+   패키지 경로      : /var/lib/kudu/master
+   wal 디렉토리경로  : /data/kudu/master/wal
+   data 디렉토리경로 : /data/kudu/master/data
+   마스터가 RPC 포트 : 7051
+
+2. 테블릿 서버
+	태블릿 서버 당 8 TB 이상의 Kudu 데이터를 저장하지 않는 것이 좋습니다.
+	WAL 태블릿 서버에는 저장되는 메타 데이터가 있습니다. 
+	이 메타 데이터가 기록되는 디렉토리는 구성 가능하며 SSD와 같이 처리량이 높고 대기 시간이 짧은 
+	최고 성능의 드라이브에 배치해야합니다. 
+	v1.7부터는 기본 디렉토리가 WAL 디렉토리에 지정된 디렉토리가됩니다. 
+	--fs_metadata_dir, 메타 데이터를 배치 할 위치를 지정하고 제어 할 수 있습니다.
+
+	아래의 내용은 공갼효율을 위해서는 kudu의 data를 별도의 디스크에 할당하지 않고
+	hdfs에 할당된 디스크에 디렉토리만 할당하여 사용할 것을 권장하고 있습니다.
+	
+	kudu의 wal 만 별도의 ssd를 사용하여 할당함을 권장하고 있습니다.
+    wal 디렉토리경로  : /data/kudu/tserver/wal
+    data 디렉토리경로 : /data/kudu/tserver/data 	
+	
+3. kudu configurations
+   아래의 문서를 참조할 것
+   https://www.cloudera.com/documentation/enterprise/5/latest/topics/kudu_background_tasks.html	
+   https://kudu.apache.org/docs/configuration.html
+   
+4. kudu admin
+   https://kudu.apache.org/docs/administration.html   
+   
+As soon as users learn that Kudu sits completely outside of HDFS and the rest of the Hadoop ecosystem, 
+the common thinking is to start isolating drives for Kudu versus HDFS. 
+Although this is possible and certainly does isolate workloads from a storage perspective, 
+it can end up being too restrictive in the long run. 
+There might be workloads today that require more HDFS capacity; 
+however, in the future, perhaps more of those workloads will move to Kudu. 
+Making changes in storage configurations after the fail could prove to be very costly and cumbersome.
+We would suggest that you use the same disks assigned for HDFS data for Kudu data as well, 
+except for the actual directory path given to each service.
+
+For example, let’s assume that /disk1 is an ext4 filesystem that sits on top of a single JBOD disk. 
+For HDFS, normally, you would define a path under this directory such as:
+
+/disk1/dfs : Directory for HDFS data
+For Kudu, we simply would add a new directory such as the following:
+
+/disk1/tserver : Directory for Kudu data
+Hence, both Kudu and HDFS sit in their own directories on the same filesystem and device volume. 
+HDFS and Kudu alike would simply know about the total capacity left on a given drive, 
+and an HDFS rebalance might take place, for example, if Kudu data is hotspotting much of its data on this one node.	
+The one situation for which we would recommend different disks is in the case of encryption at rest. 
+You should configure HDFS with HDFS Transparent Encryption, while Kudu, at the moment, 
+relies on full-disk encryption techniques at the device level in order to have data encrypted at rest.
+
+If you select servers with all SSD drives, both HDFS and Kudu would benefit. 
+If all the drives are HDD, HDFS and Kudu would use them, 
+though Kudu would likely be a little more affected in its ability to read/write. 
+Still, this is expected and commonplace, 
+and many workloads already run with this behavior so it should not be considered a deterrent.
+	
+ 
